@@ -1,0 +1,8 @@
+(()=>{
+ const cfg=window.QUALIFIER_CONFIG.supabase,status=document.getElementById('auth-status'),form=document.getElementById('set-password');
+ const client=window.supabase.createClient(cfg.url,cfg.publishableKey,{auth:{storage:sessionStorage,storageKey:'3pilares-team',persistSession:true,detectSessionInUrl:true}});
+ async function show(){try{const {data,error}=await client.auth.getUser();if(error||!data.user)throw Error();document.querySelector('h1').textContent='Defina sua senha.';status.textContent='Seu acesso ao painel dependerá do vínculo com a equipe da 3 Pilares.';form.hidden=false;}catch{document.querySelector('h1').textContent='Link indisponível.';status.textContent='O link expirou ou já foi utilizado. Peça um novo convite ao responsável pelo projeto.';}}
+ client.auth.onAuthStateChange(event=>{if(['SIGNED_IN','PASSWORD_RECOVERY'].includes(event))setTimeout(show,0);});
+ client.auth.getSession().then(show).catch(()=>{status.textContent='Não foi possível verificar o link. Tente novamente.';});
+ form.onsubmit=async e=>{e.preventDefault();const d=new FormData(form),password=String(d.get('password'));if(password.length<12||password!==d.get('confirmation')){status.textContent='Confira as senhas: devem ser iguais e ter pelo menos 12 caracteres.';return;}const b=form.querySelector('button');b.disabled=true;try{const {error}=await client.auth.updateUser({password});if(error)throw error;form.reset();form.hidden=true;document.querySelector('h1').textContent='Senha salva.';status.textContent='Você já pode abrir o painel com sua conta autorizada.';}catch{status.textContent='Não foi possível salvar a senha. Confira se o link ainda é válido e tente novamente.';}finally{b.disabled=false;}};
+})();
