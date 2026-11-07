@@ -6,11 +6,23 @@
  const date=s=>s?new Date(s).toLocaleString('pt-BR'):'—';
  let user=null,rows=[],selected=null,page=0,total=0,busy=false,filterStatus='',filterRoute='',request=0;
  function login(message=''){
-  root.innerHTML=`<section class="auth-card"><p class="eyebrow">ACESSO RESTRITO</p><h1>Atendimento personalizado.</h1><p>Entre com a conta autorizada da equipe.</p><form id="login"><label class="field">E-mail<input name="email" type="email" autocomplete="username" required maxlength="150"></label><label class="field">Senha<input name="password" type="password" autocomplete="current-password" required></label><p id="login-error" role="alert">${esc(message)}</p><button class="primary">Entrar</button></form><p class="help muted">O cadastro e a recuperação de acesso são feitos pelo responsável pelo projeto. Não há cadastro público de equipe.</p></section>`;
+  root.innerHTML=`<section class="auth-card"><p class="eyebrow">ACESSO RESTRITO</p><h1>Atendimento personalizado.</h1><p>Entre com a conta autorizada da equipe.</p><form id="login"><label class="field">E-mail<input name="email" type="email" autocomplete="username" required maxlength="150"></label><label class="field">Senha<input name="password" type="password" autocomplete="current-password" required></label><p id="login-error" role="alert">${esc(message)}</p><button class="primary">Entrar</button></form><p><button id="forgot-password" class="textbutton" type="button">Esqueci minha senha</button></p><p class="help muted">O cadastro de novas contas é feito pelo responsável pelo projeto. Não há cadastro público de equipe.</p></section>`;
+  document.getElementById('forgot-password').onclick=()=>recover(document.querySelector('#login [name=email]').value);
   document.getElementById('login').onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=new FormData(f);f.querySelector('button').disabled=true;try{const {data,error}=await client.auth.signInWithPassword({email:String(d.get('email')).trim(),password:String(d.get('password'))});if(error)throw error;f.reset();await authorize(data.session);}catch{document.getElementById('login-error').textContent='Não foi possível entrar. Confira os dados e a conexão.';f.querySelector('button').disabled=false;}};
  }
+ function recover(email=''){
+  root.innerHTML=`<section class="auth-card"><p class="eyebrow">RECUPERAR ACESSO</p><h1>Esqueceu sua senha?</h1><p>Informe o e-mail da sua conta. Você receberá um link para definir uma nova senha.</p><form id="recover"><label class="field">E-mail<input name="email" type="email" autocomplete="email" required maxlength="150" value="${esc(email)}"></label><p id="recovery-status" class="muted" role="status" aria-live="polite"></p><button class="primary" type="submit">Enviar link de recuperação</button></form><p><button id="back-login" class="textbutton" type="button">Voltar para entrar</button></p></section>`;
+  document.getElementById('back-login').onclick=()=>{history.replaceState(null,'',location.pathname+location.search);login();};
+  document.getElementById('recover').onsubmit=async e=>{
+   e.preventDefault();const f=e.currentTarget;if(!f.reportValidity())return;const button=f.querySelector('button'),message=document.getElementById('recovery-status');if(button.disabled)return;
+   button.disabled=true;message.textContent='Enviando solicitação…';
+   try{const {error}=await client.auth.resetPasswordForEmail(String(new FormData(f).get('email')).trim(),{redirectTo:new URL('auth.html',location.href).href});if(error)throw error;
+    message.textContent='Se houver uma conta com esse e-mail, você receberá o link de recuperação. Confira também o spam. Abra o link mais recente e escolha sua nova senha.';button.textContent='Solicitação enviada';
+   }catch(error){message.textContent=error?.status===429?'Aguarde alguns minutos antes de solicitar outro link.':'Não foi possível enviar a solicitação. Confira a conexão e tente novamente.';button.disabled=false;}
+  };
+ }
  async function authorize(session){
-  if(!session){user=null;rows=[];selected=null;login();return;}
+  if(!session){user=null;rows=[];selected=null;if(location.hash==='#recuperar')recover();else login();return;}
   user=session.user;
   const {data,error}=await client.from('tp_team').select('display_name').eq('user_id',user.id).maybeSingle();
   if(error||!data){root.innerHTML='<section class="auth-card"><h1>Acesso não liberado.</h1><p>Esta conta precisa ser vinculada à equipe da 3 Pilares pelo responsável pelo projeto.</p><button id="logout" class="secondary">Sair</button></section>';document.getElementById('logout').onclick=signout;return;}
